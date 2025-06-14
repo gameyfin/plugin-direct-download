@@ -1,6 +1,6 @@
-package de.grimsi.gameyfinplugins.directdownload
+package org.gameyfin.plugins.download.direct
 
-import de.grimsi.gameyfinplugins.directdownload.CompressionMode.*
+import org.gameyfin.plugins.download.direct.CompressionMode.*
 import java.util.zip.Deflater
 
 enum class CompressionMode {

@@ -1,11 +1,11 @@
-package de.grimsi.gameyfinplugins.directdownload
+package org.gameyfin.plugins.download.direct
 
-import de.grimsi.gameyfin.pluginapi.core.config.ConfigMetadata
-import de.grimsi.gameyfin.pluginapi.core.config.PluginConfigMetadata
-import de.grimsi.gameyfin.pluginapi.core.wrapper.ConfigurableGameyfinPlugin
-import de.grimsi.gameyfin.pluginapi.download.Download
-import de.grimsi.gameyfin.pluginapi.download.DownloadProvider
-import de.grimsi.gameyfin.pluginapi.download.FileDownload
+import org.gameyfin.pluginapi.core.config.ConfigMetadata
+import org.gameyfin.pluginapi.core.config.PluginConfigMetadata
+import org.gameyfin.pluginapi.core.wrapper.ConfigurableGameyfinPlugin
+import org.gameyfin.pluginapi.download.Download
+import org.gameyfin.pluginapi.download.DownloadProvider
+import org.gameyfin.pluginapi.download.FileDownload
 import org.pf4j.Extension
 import org.pf4j.PluginWrapper
 import java.io.IOException
