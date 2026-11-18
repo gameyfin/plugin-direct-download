@@ -1,0 +1,14 @@
+{
+  "id": "org.gameyfin.plugins.download.direct",
+  "name": "Direct Download",
+  "description": "Downloads games directly in the browser.<br>If the game is contained in a folder, it will pack the folder into a zip file on the fly.",
+  "provider": "grimsi",
+  "license": "MIT",
+  "projectUrl": "https://github.com/gameyfin/plugin-direct-download",
+  "types": [
+    "DownloadProvider"
+  ],
+  "maintainers": [
+    "grimsi"
+  ]
+}
