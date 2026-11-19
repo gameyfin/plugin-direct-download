@@ -10,7 +10,8 @@ import java.util.zip.ZipOutputStream
 internal object CompressedZip {
     fun stream(
         root: Path, mode: CompressionMode,
-        visit: (Path, (Path, Long) -> Unit) -> Unit = ArchiveFiles::visit
+        visit: (Path, (Path, Long) -> Unit) -> Unit = ArchiveFiles::visit,
+        open: (Path) -> InputStream = { Files.newInputStream(it) }
     ): InputStream {
         return ArchiveStream.open(root) { output ->
             // ArchiveStream owns the pipe: finish the ZIP without closing it before publishing failures.
@@ -29,7 +30,7 @@ internal object CompressedZip {
                         zip.flush()
                         firstEntry = false
                     }
-                    val copied = Files.newInputStream(file).use { it.copyTo(zip) }
+                    val copied = open(file).use { it.copyTo(zip) }
                     if (copied != size) throw IOException("File size changed during archive generation: $file")
                     zip.closeEntry()
                 }

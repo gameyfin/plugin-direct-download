@@ -90,19 +90,24 @@ object StoredZip {
     }
 
     /** A single snapshot drives both the advertised length and the archive writer. */
-    fun download(root: Path): org.gameyfin.pluginapi.download.FileDownload {
-        val snapshot = entries(root)
+    fun download(
+        root: Path,
+        visit: (Path, (Path, Long) -> Unit) -> Unit = ArchiveFiles::visit,
+        open: (Path) -> InputStream = { Files.newInputStream(it) }
+    ): org.gameyfin.pluginapi.download.FileDownload {
+        val snapshot = entries(root, visit)
         val size = plannedSize(snapshot.map { it.name.size }, snapshot.map { it.size })
         return org.gameyfin.pluginapi.download.FileDownload(
-            ArchiveStream.open(root) { output -> writeArchive(output) { consume -> snapshot.forEach(consume) } }, "zip", size
+            ArchiveStream.open(root) { output -> writeArchive(output, open) { consume -> snapshot.forEach(consume) } }, "zip", size
         )
     }
 
     fun stream(root: Path): InputStream = stream(root, ArchiveFiles::visit)
 
-    internal fun stream(root: Path, visit: (Path, (Path, Long) -> Unit) -> Unit): InputStream =
+    internal fun stream(root: Path, visit: (Path, (Path, Long) -> Unit) -> Unit,
+                        open: (Path) -> InputStream = { Files.newInputStream(it) }): InputStream =
         ArchiveStream.open(root) { output ->
-            writeArchive(output) { consume ->
+            writeArchive(output, open) { consume ->
                 visit(root) { file, size -> consume(Entry(file, zipName(root, file).toByteArray(Charsets.UTF_8), size)) }
             }
         }
@@ -111,7 +116,7 @@ object StoredZip {
     private const val FLAGS_UTF8 = 0x0800
     private const val FLAG_DATA_DESCRIPTOR = 0x0008
 
-    private fun writeArchive(out: OutputStream, visit: ((Entry) -> Unit) -> Unit) {
+    private fun writeArchive(out: OutputStream, open: (Path) -> InputStream, visit: ((Entry) -> Unit) -> Unit) {
         val centrals = ArrayList<Central>()
         val buffer = ByteArray(512 * 1024)
         var offset = 0L
@@ -120,7 +125,7 @@ object StoredZip {
         visit { e ->
             writeLocalHeader(out, e)
             if (centrals.isEmpty()) out.flush()
-            val crc = writeFileData(out, e, buffer)
+            val crc = writeFileData(out, e, buffer, open)
             writeDataDescriptor(out, e.size, crc)
             centrals.add(Central(e.name, crc, e.size, offset))
             offset += LOCAL_HEADER + e.name.size + localExtraLen(e.size) + e.size + descriptorLen(e.size)
@@ -153,12 +158,12 @@ object StoredZip {
         if (zip64) { out.u16(1); out.u16(16); out.u64(e.size); out.u64(e.size) }
     }
 
-    private fun writeFileData(out: OutputStream, e: Entry, buffer: ByteArray): Long {
+    private fun writeFileData(out: OutputStream, e: Entry, buffer: ByteArray, open: (Path) -> InputStream): Long {
         // Sizes stay in the local header (STORED data can't be delimited otherwise); only the CRC
         // is deferred, so streaming starts immediately.
         val crc = CRC32()
         var copied = 0L
-        Files.newInputStream(e.file).use { input ->
+        open(e.file).use { input ->
             while (true) {
                 val n = input.read(buffer)
                 if (n < 0) break
@@ -232,9 +237,9 @@ object StoredZip {
     }
 
     /** Regular files under [root], deterministically ordered. Empty directories are not entries. */
-    private fun entries(root: Path): List<Entry> {
+    private fun entries(root: Path, visit: (Path, (Path, Long) -> Unit) -> Unit = ArchiveFiles::visit): List<Entry> {
         val files = ArrayList<Entry>()
-        ArchiveFiles.visit(root) { file, size ->
+        visit(root) { file, size ->
             files.add(Entry(file, zipName(root, file).toByteArray(Charsets.UTF_8), size))
         }
         return files
