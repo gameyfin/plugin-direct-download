@@ -69,6 +69,15 @@ class DirectDownloadPlugin(context: PluginContext) : ConfigurableGameyfinPlugin(
 
         override fun downloadSelection(root: Path, relativeFiles: List<Path>): FileDownload {
             require(relativeFiles.isNotEmpty())
+            relativeFiles.singleOrNull()?.let { relative ->
+                val (file, size) = ArchiveFiles.selectedFile(root, relative)
+                return FileDownload(
+                    ArchiveFiles.openSelected(root, file),
+                    file.extension,
+                    size,
+                    file.fileName.toString()
+                )
+            }
             val visit = ArchiveFiles.selected(relativeFiles)
             return archive(root, visit) { ArchiveFiles.openSelected(root, it) }
         }
@@ -80,7 +89,13 @@ class DirectDownloadPlugin(context: PluginContext) : ConfigurableGameyfinPlugin(
         ): FileDownload {
             val mode = mode()
             return if (mode == CompressionMode.None) {
-                if (calculateSize()) StoredZip.download(path, visit, open) else FileDownload(StoredZip.stream(path, visit, open), "zip")
+                if (calculateSize()) StoredZip.download(path, visit, open) else FileDownload(
+                    StoredZip.stream(
+                        path,
+                        visit,
+                        open
+                    ), "zip"
+                )
             } else FileDownload(CompressedZip.stream(path, mode, visit, open), "zip")
         }
 

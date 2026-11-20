@@ -17,12 +17,17 @@ import java.nio.file.attribute.BasicFileAttributes
 internal object ArchiveFiles {
     fun selected(files: List<Path>): (Path, (Path, Long) -> Unit) -> Unit = { root, consume ->
         for (relative in files.distinct()) {
-            require(relative.root == null && relative.none { it.toString() in setOf("", ".", "..") })
-            val file = root.resolve(relative)
-            val attributes = Files.readAttributes(file, BasicFileAttributes::class.java, NOFOLLOW_LINKS)
-            if (!attributes.isRegularFile || file.toRealPath() != file) throw IOException("Selected file changed")
-            consume(file, attributes.size())
+            val (file, size) = selectedFile(root, relative)
+            consume(file, size)
         }
+    }
+
+    fun selectedFile(root: Path, relative: Path): Pair<Path, Long> {
+        require(relative.root == null && relative.none { it.toString() in setOf("", ".", "..") })
+        val file = root.resolve(relative)
+        val attributes = Files.readAttributes(file, BasicFileAttributes::class.java, NOFOLLOW_LINKS)
+        if (!attributes.isRegularFile || file.toRealPath() != file) throw IOException("Selected file changed")
+        return file to attributes.size()
     }
 
     /** Open each component relative to a pinned directory handle so a replaced ancestor cannot redirect the read. */
