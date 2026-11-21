@@ -44,7 +44,7 @@ class DirectDownloadPlugin(context: PluginContext) : ConfigurableGameyfinPlugin(
 
     @Suppress("Unused")
     @Extension(ordinal = 1)
-    class DirectDownloadProvider : DownloadProvider {
+    class DirectDownloadProvider : SelectiveDownloadProvider {
         private fun mode() = plugin.config<CompressionMode>("compressionMode")
         private fun calculateSize() = plugin.config<Boolean>("calculateArchiveSize")
 
@@ -64,10 +64,39 @@ class DirectDownloadPlugin(context: PluginContext) : ConfigurableGameyfinPlugin(
                 val size = path.fileSize()
                 return FileDownload(streamFile(path), path.extension, size)
             }
+            return archive(path)
+        }
+
+        override fun downloadSelection(root: Path, relativeFiles: List<Path>): FileDownload {
+            require(relativeFiles.isNotEmpty())
+            relativeFiles.singleOrNull()?.let { relative ->
+                val (file, size) = ArchiveFiles.selectedFile(root, relative)
+                return FileDownload(
+                    ArchiveFiles.openSelected(root, file),
+                    file.extension,
+                    size,
+                    file.fileName.toString()
+                )
+            }
+            val visit = ArchiveFiles.selected(relativeFiles)
+            return archive(root, visit) { ArchiveFiles.openSelected(root, it) }
+        }
+
+        private fun archive(
+            path: Path,
+            visit: (Path, (Path, Long) -> Unit) -> Unit = ArchiveFiles::visit,
+            open: (Path) -> InputStream = ::streamFile
+        ): FileDownload {
             val mode = mode()
             return if (mode == CompressionMode.None) {
-                if (calculateSize()) StoredZip.download(path) else FileDownload(StoredZip.stream(path), "zip")
-            } else FileDownload(CompressedZip.stream(path, mode), "zip")
+                if (calculateSize()) StoredZip.download(path, visit, open) else FileDownload(
+                    StoredZip.stream(
+                        path,
+                        visit,
+                        open
+                    ), "zip"
+                )
+            } else FileDownload(CompressedZip.stream(path, mode, visit, open), "zip")
         }
 
         fun streamFile(path: Path): InputStream = Files.newInputStream(path)

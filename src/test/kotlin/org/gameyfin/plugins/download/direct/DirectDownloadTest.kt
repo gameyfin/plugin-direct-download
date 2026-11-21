@@ -19,15 +19,72 @@ import kotlin.test.*
 class DirectDownloadTest {
     @TempDir lateinit var root: Path
 
-    @Test
-    fun `configured modes produce readable archives with correct size contracts`() {
-        val plugin = DirectDownloadPlugin(object : PluginContext {
+    private fun plugin() = DirectDownloadPlugin(object : PluginContext {
             override val pluginId = "direct"
             override val pluginVersion = "test"
             override val dataDirectory get() = root
             override val dataService: GameyfinDataService get() = error("unused")
             override val notificationService: GameyfinNotificationService get() = error("unused")
         })
+
+    @Test
+    fun `selected archives preserve just the chosen names bytes and compression settings`() {
+        val folder = Files.createDirectory(root.resolve("game")).toRealPath()
+        val plugin = plugin()
+        val provider = DirectDownloadPlugin.DirectDownloadProvider()
+        val names = listOf("base/update.bin", "dlc/update.bin")
+        Files.writeString(folder.resolve("omit"), "unselected")
+        for (name in names) {
+            Files.createDirectories(folder.resolve(name).parent)
+            Files.writeString(folder.resolve(name), name)
+        }
+        for (mode in CompressionMode.entries) {
+            for (calculateSize in listOf(false, true)) {
+                plugin.loadConfig(mapOf("compressionMode" to mode.name, "calculateArchiveSize" to calculateSize.toString()))
+                val download = provider.downloadSelection(folder, names.map(Path::of))
+                val bytes = download.data.use { it.readAllBytes() }
+                assertEquals(if (mode == CompressionMode.None && calculateSize) bytes.size.toLong() else null, download.size)
+                ZipFile(Files.write(root.resolve("selected.zip"), bytes).toFile()).use { zip ->
+                    assertEquals(names.toSet(), zip.entries().asSequence().map { it.name }.toSet())
+                    for (name in names) {
+                        val entry = zip.getEntry(name)
+                        assertEquals(if (mode == CompressionMode.None) 0 else 8, entry.method)
+                        assertEquals(name, zip.getInputStream(entry).use { it.readAllBytes().decodeToString() })
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `single selection returns original bytes and basename`() {
+        val folder = root.toRealPath()
+        Files.createDirectory(folder.resolve("updates"))
+        val provider = DirectDownloadPlugin.DirectDownloadProvider()
+        for ((name, bytes) in listOf("café.patch.zip" to byteArrayOf(7, 1, 9), "README" to byteArrayOf())) {
+            val relative = Path.of("updates", name)
+            Files.write(folder.resolve(relative), bytes)
+            val download = provider.downloadSelection(folder, listOf(relative))
+            assertEquals(name, download.fileName)
+            assertEquals(bytes.size.toLong(), download.size)
+            download.data.use { assertContentEquals(bytes, it.readAllBytes()) }
+        }
+    }
+
+    @Test
+    fun `selected entry open rejects a parent replaced with a symlink`() {
+        val folder = Files.createDirectory(root.resolve("game")).toRealPath()
+        val outside = Files.createDirectory(root.resolve("outside"))
+        Files.writeString(outside.resolve("payload"), "outside")
+        val parent = Files.createDirectory(folder.resolve("parent"))
+        Files.delete(parent)
+        Files.createSymbolicLink(parent, outside)
+        assertFailsWith<IOException> { ArchiveFiles.openSelected(folder, parent.resolve("payload")).close() }
+    }
+
+    @Test
+    fun `configured modes produce readable archives with correct size contracts`() {
+        val plugin = plugin()
         val folder = Files.createDirectory(root.resolve("game"))
         val content = "game data ".repeat(100_000).toByteArray()
         Files.write(folder.resolve("café.txt"), content)
@@ -59,13 +116,7 @@ class DirectDownloadTest {
 
     @Test
     fun `missing size setting defaults to fast startup and folder metadata omits size`() {
-        val plugin = DirectDownloadPlugin(object : PluginContext {
-            override val pluginId = "direct"
-            override val pluginVersion = "test"
-            override val dataDirectory get() = root
-            override val dataService: GameyfinDataService get() = error("unused")
-            override val notificationService: GameyfinNotificationService get() = error("unused")
-        })
+        val plugin = plugin()
         plugin.loadConfig(emptyMap())
         val provider = DirectDownloadPlugin.DirectDownloadProvider()
         assertNull(provider.describe(root).size)
