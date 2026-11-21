@@ -10,8 +10,15 @@ plugins {
 group = "org.gameyfin.plugins"
 version = Manifest(file("src/main/resources/MANIFEST.MF").inputStream()).mainAttributes.getValue("Plugin-Version")
 
-repositories { mavenCentral() }
-dependencyLocking { lockAllConfigurations() }
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 val javaVersion = providers.gradleProperty("javaVersion").get()
 val kotlinLanguageVersion = KotlinVersion.fromVersion(providers.gradleProperty("kotlinLanguageVersion").get())
 

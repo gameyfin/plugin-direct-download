@@ -1,0 +1,27 @@
+name: Build Gameyfin Plugin API
+description: Build and install the plugin API version declared by the plugin
+runs:
+  using: composite
+  steps:
+    - name: Read the plugin API version
+      id: api-version
+      shell: bash
+      run: |
+        properties_file="$GITHUB_ACTION_PATH/../../../gradle.properties"
+        version=$(sed -nE 's/^[[:blank:]]*pluginApiVersion[[:blank:]]*=[[:blank:]]*([^[:space:]]+)[[:space:]]*$/\1/p' "$properties_file")
+        tag="refs/tags/v$version"
+        if [[ -z "$version" ]] || ! git check-ref-format "$tag"; then
+          echo "::error::Expected one valid pluginApiVersion in gradle.properties"
+          exit 1
+        fi
+        printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        repository: gameyfin/gameyfin
+        ref: ${{ steps.api-version.outputs.tag }}
+        path: .gameyfin-api
+        persist-credentials: false
+    - name: Publish plugin-api to Maven Local
+      shell: bash
+      working-directory: .gameyfin-api
+      run: ./gradlew :plugin-api:publishToMavenLocal

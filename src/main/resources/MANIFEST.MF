@@ -1,11 +1,10 @@
-Plugin-Version: 1.2.2
+Plugin-Version: 1.3.0
 Plugin-Class: org.gameyfin.plugins.download.direct.DirectDownloadPlugin
 Plugin-Id: org.gameyfin.plugins.download.direct
 Plugin-Name: Direct Download
-Plugin-Description: Downloads games directly in the browser.<br>
- If the game is contained in a folder, it will pack the folder into a zip file on the fly.
+Plugin-Description: Downloads games directly in the browser.\n\nIf the game is contained in a folder, it will pack the folder into a zip file on the fly.
 Plugin-Short-Description: Download directly in the browser
 Plugin-Author: grimsi
 Plugin-License: MIT
 Plugin-Url: https://github.com/gameyfin/plugin-direct-download
-Plugin-Requires: >=2.7.0
+Plugin-Requires: >=2.7.1
